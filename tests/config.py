@@ -7,29 +7,44 @@ Replace this with more appropriate tests for your application.
 import json
 import unittest
 import mock
+
 from mock import patch, DEFAULT, MagicMock
+from stubs import stub_requests, stub_ConfigParser
 
 import octogit.config
+
 class ConfigTest(unittest.TestCase):
 
-    @patch('octogit.config.config')
-    def test_get_username(self, mock_config):
-        octogit.config.get_username()
-        mock_config.get.assert_called_once_with('octogit', 'username')
-        mock_config.read.assert_called_once_with(octogit.config.CONFIG_FILE)
+    @patch('octogit.config.config', stub_ConfigParser.StubConfigParser())
+    @patch('octogit.config.os.makedirs')
+    @patch('octogit.config.os.path.exists', MagicMock(return_value=False))
+    @patch('__builtin__.open')
+    def test_create_config(self, mock_osmakedirs, mock_open):
 
-    @patch('octogit.config.fopen')
-    @patch.multiple('octogit.config', requests=DEFAULT, config=DEFAULT)
+        result_config = octogit.config.create_config()
+
+        self.assertEqual(result_config.get('octogit', 'username'), '')
+        self.assertEqual(result_config.get('octogit', 'token'), '')
+
+        mock_open.assert_called_once_with(octogit.config.CONFIG_FILE, 'w')
+
+    @patch('octogit.config.config', stub_ConfigParser.StubConfigParser())
+    @patch('octogit.config.os.makedirs')
+    @patch('octogit.config.os.path.exists', MagicMock(return_value=False))
+    @patch('__builtin__.open')
+    def test_set_username(self, mock_osmakedirs, mock_open):
+
+        octogit.config.set_username('dummy_user')
+
+        self.assertEqual(octogit.config.config.get('octogit', 'username'), 'dummy_user')
+        self.assertEqual(octogit.config.config.was_written, True)
+
+        mock_open.assert_called_once_with(octogit.config.CONFIG_FILE, 'w')
+
+    @patch.multiple('octogit.config', requests=stub_requests, config=stub_ConfigParser)
     def test_login(self, mock_open, requests, config):
-        return_request = MagicMock()
-        return_request.status_code = 201
-        return_request.content = '{"token": "dummy_token"}'
-        requests.post = MagicMock(return_value=return_request)
         octogit.config.login('name', 'pass')
-        requests.post.assert_called_once_with('https://api.github.com/authorizations',
-            auth=('name', 'pass'), data= json.dumps({ "note": "octogit",
-                        "note_url": "https://github.com/myusuf3/octogit",
-                        "scopes": ["repo"]}))
+
 
 
 
